@@ -11,8 +11,8 @@ next steps: complete moisture and CO2
 4/18: 
 
 done: moisture sensor fully functional (individual)
-current: trying to run C02
-current: running moisture and dht22 combined 
+pending: trying to run C02
+done: running moisture and dht22 combined 
 
 
 
