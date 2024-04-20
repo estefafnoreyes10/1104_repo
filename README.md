@@ -19,5 +19,8 @@ done: running moisture and dht22 combined
 
 done:     co2/temperature/humimidity sparkfun qwiic sensor integrated 
 done:     moisture sensors in parallel 
+done:     light sensor
+current:  integrating all sensors together 
 
-
+pending:  make pump work either by solenoid/valve.. read more info
+pending:  maybe adding a 2nd light sensor 
