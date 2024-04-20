@@ -10,12 +10,12 @@ int soilMoistureValue5 = 0;
 
 
 // Include the library for the DHT22 sensor
-#include <DHT22.h>
-#define pinDATA 4 // Define the pin where the data line of the DHT22 sensor is connected
 
 
 
-DHT22 dht22(4); // Initialize the DHT22 sensor
+
+
+
 
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
@@ -44,8 +44,7 @@ void displaySensorDetails(void)
   Serial.println("------------------------------------");
   Serial.println("");
 
-  //co2
-  Wire.begin();
+  
 
 
   delay(500);
@@ -80,7 +79,16 @@ void configureSensor(void)
 
 void setup() {
   Serial.begin(115200); // Open serial port, set the baud rate to 115200 bps
+  //co2
+  Serial.println(F("SCD4x"));
+  Wire.begin();
+
   Serial.println("Starting sensors test...");
+  if (!mySensor.begin()== false){
+    Serial.println("Fail scd4x sensor");
+    
+    
+  }
 
     /* Display some basic information on this sensor */
   displaySensorDetails();
@@ -130,24 +138,7 @@ void loop() {
     Serial.println("Status: Air");
   }
 
-  // Read and process temperature and humidity data
-  Serial.println(dht22.debug()); // Optional: Output debug information from the DHT22
-
-  float temperature = dht22.getTemperature();
-  float humidity = dht22.getHumidity();
-
-  // Handle potential errors from DHT22 sensor
-  if (dht22.getLastError() != dht22.OK) {
-    Serial.print("Last error: ");
-    Serial.println(dht22.getLastError());
-  }
-
-  // Display temperature and humidity
-  Serial.print("Humidity: ");
-  Serial.print(humidity, 1);
-  Serial.print("%\tTemperature: ");
-  Serial.print(temperature, 1);
-  Serial.println("°C");
+ 
 
     /* Get a new sensor event */ 
   sensors_event_t event;
@@ -168,6 +159,7 @@ void loop() {
   }
 
   //co2
+  Serial.println("BEGIN CO2 stuff");
   if (mySensor.readMeasurement()) // readMeasurement will return true when fresh data is available
   {
     Serial.println();
@@ -184,7 +176,7 @@ void loop() {
     Serial.println();
   }
   else
-    Serial.print(F("."));
+    Serial.println("Fail");
 
 
 
