@@ -15,4 +15,9 @@ pending: trying to run C02
 done: running moisture and dht22 combined 
 
 
+4/20:
+
+done:     co2/temperature/humimidity sparkfun qwiic sensor integrated 
+done:     moisture sensors in parallel 
+
 
