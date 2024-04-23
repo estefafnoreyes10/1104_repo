@@ -24,3 +24,10 @@ current:  integrating all sensors together
 
 pending:  make pump work either by solenoid/valve.. read more info
 pending:  maybe adding a 2nd light sensor 
+
+4/23
+
+done: water pump sensor runs
+pending: integrate pump sensor into main code 
+
+#at this point phase 1 works#
