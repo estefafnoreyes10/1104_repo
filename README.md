@@ -31,3 +31,9 @@ done: water pump sensor runs
 pending: integrate pump sensor into main code 
 
 #at this point phase 1 works#
+
+4/25: 
+
+  done: pump/relay and one sesnor
+  pending: testing above with 3 sensors
+  pending: integrate above in main script
