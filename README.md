@@ -35,5 +35,7 @@ pending: integrate pump sensor into main code
 4/25: 
 
   done: pump/relay and one sesnor
+  wip: wifi page live updates for light sensor
   pending: testing above with 3 sensors
   pending: integrate above in main script
+  
