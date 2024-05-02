@@ -1,19 +1,18 @@
 // Constants for soil moisture sensor thresholds
-const int AirValue = 3500;   // Replace with the maximum dry value (air)
-const int WaterValue = 1500; // Replace with the minimum wet value (water)
+const int AirValue = 9;   // Replace with the maximum dry value (air)
+const int WaterValue = 20; // Replace with the minimum wet value (water)
+const int lightLowerBound = 50;
+const in lightUpperBound = 500;
 int intervals = (AirValue - WaterValue) / 3;  // Calculate intervals to classify moisture level
 int soilMoistureValue1  = 0;  // Variable to store the moisture value
 int soilMoistureValue2 = 0;
 int soilMoistureValue3 = 0;
 int soilMoistureValue4 = 0;
 int soilMoistureValue5 = 0;
-
+int soilPercent1 = 0;
+const relayLightPin = 25;
 
 // Include the library for the DHT22 sensor
-
-
-
-
 
 
 
@@ -80,6 +79,7 @@ void configureSensor(void)
 void setup() {
   Serial.begin(115200); // Open serial port, set the baud rate to 115200 bps
   //co2
+  pinMode(relayControlPin, OUTPUT);
   Serial.println(F("SCD4x"));
   Wire.begin();
 
@@ -105,40 +105,21 @@ void loop() {
   soilMoistureValue1 = analogRead(A0);  // Read the value from Analog pin 0
   soilMoistureValue2 = analogRead(A3);
   soilMoistureValue3 = analogRead(A6);
-  soilMoistureValue4 = analogRead(A7);
-  soilMoistureValue5 = analogRead(A4);
+  soilPercent1 = exp(-1*(soilMoistureValue1 -3248.5)/449.9);
+  soilPercent2 = exp(-1*(soilMoistureValue2 -3248.5)/449.9);
+  soilPercent3 = exp(-1*(soilMoistureValue3 -3248.5)/449.9);
 
 
   Serial.print("Soil Moisture Raw Value for sensor 1: ");
   Serial.println(soilMoistureValue1);  // Display the raw value of soil moisture
-  Serial.println("################");
+  Serial.print(soilPercent1); Serial.println("%"); Serial.println("################");
   Serial.print("Soil Moisture Raw Value for sensor 2: ");
   Serial.println(soilMoistureValue2);  // Display the raw value of soil moisture
-  Serial.println("################");
+  Serial.print(soilPercent2);Serial.println("%");Serial.println("################");
   Serial.print("Soil Moisture Raw Value for sensor 3: ");
   Serial.println(soilMoistureValue3);  // Display the raw value of soil moisture
-  Serial.println("################");
-  Serial.print("Soil Moisture Raw Value for sensor 4: ");
-  Serial.println(soilMoistureValue4);  // Display the raw value of soil moisture
-  Serial.println("################");
-  Serial.print("Soil Moisture Raw Value for sensor 5: ");
-  Serial.println(soilMoistureValue5);  // Display the raw value of soil moisture
+  Serial.print(soilPercent3);Serial.println("%");Serial.println("################");
 
-  
-  // Classify and display the moisture level
-  if (soilMoistureValue1 <= WaterValue) {
-    Serial.println("Status: Water");
-  } else if (soilMoistureValue1 <= WaterValue + intervals) {
-    Serial.println("Status: Very Wet");
-  } else if (soilMoistureValue1 <= AirValue - intervals) {
-    Serial.println("Status: Wet");
-  } else if (soilMoistureValue1 < AirValue) {
-    Serial.println("Status: Dry");
-  } else {
-    Serial.println("Status: Air");
-  }
-
- 
 
     /* Get a new sensor event */ 
   sensors_event_t event;
@@ -153,7 +134,20 @@ void loop() {
   {
     /* If event.light = 0 lux the sensor is probably saturated
        and no reliable data could be generated! */
-    Serial.println("Sensor overload");
+    Serial.println("Light sensor overload");
+
+
+  }
+  if(event.light <= lightLowerBound){
+    Serial.print("light:"); Serial.print(event.light); Serial.println(" lux");
+
+    Serial.print("turning light on");
+    digitalWrite(relayLightPin, HIGH)
+  } else if (event.light >= lightUpperBound){
+    Serial.print("light:"); Serial.print(event.light); Serial.println(" lux");
+
+    Serial.print("turning light off");
+    digitalWrite(relayLightPin, LOW)
 
 
   }
