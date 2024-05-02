@@ -21,6 +21,11 @@
 // Set these to your desired credentials.
 const char *ssid = "yourAP";
 const char *password = "yourPassword";
+int soilMoistureValue1  = 0;  // Variable to store the moisture value
+int soilMoistureValue2 = 0;
+int soilMoistureValue3 = 0;
+
+int soilPercent1 = 0;
 
 WiFiServer server(80);
 
@@ -74,6 +79,22 @@ void setup() {
 void loop() {
   sensors_event_t event;
   tsl.getEvent(&event);
+  // Read and process soil moisture data
+  soilMoistureValue1 = analogRead(A0);  // Read the value from Analog pin 0
+  soilMoistureValue2 = analogRead(A3);
+  soilMoistureValue3 = analogRead(A6);
+  soilPercent1 = exp(-1*(soilMoistureValue1 -3248.5)/449.9);
+
+
+  Serial.print("Soil Moisture Raw Value for sensor 1: ");
+  Serial.println(soilMoistureValue1);  // Display the raw value of soil moisture
+  Serial.println(soilPercent1);
+
+
+ 
+
+ 
+
 
 
 
@@ -111,7 +132,7 @@ void loop() {
             client.println("  xhttp.open('GET', '/data', true);");
             client.println("  xhttp.send();");
             client.println("}");
-            client.println("setInterval(updateData, 5000);"); // Update data every 5 seconds
+            client.println("setInterval(updateData, 2000);"); // Update data every 5 seconds
             client.println("</script>");
             client.println("</head>");
             client.println("<body>");
@@ -119,6 +140,8 @@ void loop() {
             client.println("<div id='sensorData'></div>");
             client.println("</body>");
             client.println("</html>");
+
+              
 
 
             // the content of the HTTP response follows the header:
@@ -131,8 +154,11 @@ void loop() {
                 and no reliable data could be generated! */
               client.println("Sensor overload");
             }
-            client.println("Click <a href=\"/H\">here</a> to turn ON the LED.<br>");
-            client.println("Click <a href=\"/L\">here</a> to turn OFF the LED.<br>");
+            // client.println("Click <a href=\"/H\">here</a> to turn ON the LED.<br>");
+            // client.println("Click <a href=\"/L\">here</a> to turn OFF the LED.<br>");
+            // client.print("Soil Moisture Raw Value for sensor 1: ");
+            // //client.println(soilMoistureValue1);  // Display the raw value of soil moisture
+            // client.println(soilPercent1);
 
             // The HTTP response ends with another blank line:
             client.println();
