@@ -133,7 +133,8 @@ void setup() {
 }
 
 unsigned long lastPumpTimeActive = 0;
-const unsigned long pumpInterval = 172800000UL; //48hours 
+const unsigned long pumpInterval = 172800000UL; //48hours  // 
+//const unsigned long pumpInterval = 15000;//15 seconds 
 
 
 
@@ -156,6 +157,7 @@ void loop() {
   soilPercent3 = exp(-1*(soilMoistureValue3 -3248.5)/449.9);
   
   int avgSoilPercent = (soilPercent1 +soilPercent2 + soilPercent3)/3;
+  
 
 
   Serial.print("Soil Moisture Raw Value for sensor 1: ");
@@ -179,18 +181,19 @@ void loop() {
   // Control the pump based on moisture level
 
   // Check if it's time to activate the pump
-    if (currentMillisPump - lastPumpTimeActive >= pumpInterval) {
-        // Check soil moisture conditions to decide whether to turn on or off the pump
-        if (soilPercent1 < 20) {
-            digitalWrite(relaySoilPin, HIGH); // Soil is dry, turn on the pump
-            Serial.println("Pump: ON (Soil Dry)");
-        } else if (avgSoilPercent > 20 || soilPercent2 > 20) {
-            digitalWrite(relaySoilPin, LOW); // Soil is moist enough, turn off the pump
-            Serial.println("Pump: OFF (Soil Moist)");
-        }
+  if (currentMillisPump - lastPumpTimeActive >= pumpInterval) {
 
-        lastPumpTimeActive = currentMillisPump; // Reset the timer
+    // Check soil moisture conditions to decide whether to turn on or off the pump
+    if (soilPercent1 < 20) {
+        digitalWrite(relaySoilPin, HIGH); // Soil is dry, turn on the pump
+        Serial.println("Pump: ON (Soil Dry)");
+    } else if (avgSoilPercent > 20 || soilPercent2 > 20) {
+        digitalWrite(relaySoilPin, LOW); // Soil is moist enough, turn off the pump
+        Serial.println("Pump: OFF (Soil Moist)");
     }
+
+    lastPumpTimeActive = currentMillisPump; // Reset the timer
+  }
 
   
 
