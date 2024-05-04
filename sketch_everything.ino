@@ -1,19 +1,22 @@
 // Constants for soil moisture sensor thresholds
-const int AirValue = 3500;   // Replace with the maximum dry value (air)
-const int WaterValue = 1500; // Replace with the minimum wet value (water)
+const int AirValue = 3207;   // Replace with the maximum dry value (air)
+const int WaterValue = 2200; // Replace with the minimum wet value (water)
+const int lightLowerBound = 100;
+const int lightUpperBound = 500;
 int intervals = (AirValue - WaterValue) / 3;  // Calculate intervals to classify moisture level
 int soilMoistureValue1  = 0;  // Variable to store the moisture value
 int soilMoistureValue2 = 0;
 int soilMoistureValue3 = 0;
 int soilMoistureValue4 = 0;
 int soilMoistureValue5 = 0;
-
+int soilPercent1 = 0;
+int soilPercent2 = 0;
+int soilPercent3 = 0;
+const int relaySoilPin = 16;
+const int relayLightPin = 25;
+const int dataPin = 17;             // Input pin for data recording switch
 
 // Include the library for the DHT22 sensor
-
-
-
-
 
 
 
@@ -21,8 +24,24 @@ int soilMoistureValue5 = 0;
 #include <Adafruit_Sensor.h>
 #include <Adafruit_TSL2561_U.h>
 #include "SparkFun_SCD4x_Arduino_Library.h"
+
+#include "FS.h"                     // Library for saving data to SD card
+#include "SD.h"                     // Library for saving data to SD card
+#include "SPI.h"                    // Library for saving data to SD card
+
 SCD4x mySensor;
 Adafruit_TSL2561_Unified tsl = Adafruit_TSL2561_Unified(TSL2561_ADDR_FLOAT, 12345);
+
+
+// SD Card
+String filename = "/CtrlData.csv";  // Filename for data file
+File datafile;                      // Create instance of data file handler object
+int dataPinHold;                    // Holds last state of data pin to determine state change 
+
+// Timing Variables
+const long timeStep = 1000;         // Time in ms between readings
+long senseNext;                     // Time in ms for next read
+long startTime;                     // Time stamp in ms at initialization for time offset
 
 /**************************************************************************/
 /*
@@ -80,8 +99,18 @@ void configureSensor(void)
 void setup() {
   Serial.begin(115200); // Open serial port, set the baud rate to 115200 bps
   //co2
+  pinMode(relayLightPin, OUTPUT);
+  pinMode(relaySoilPin, OUTPUT);
+  pinMode(dataPin, OUTPUT);
   Serial.println(F("SCD4x"));
   Wire.begin();
+
+  // Initialize timing variables
+  delay(500);
+  startTime = millis();
+  senseNext = 0;
+  dataPinHold = 0;
+
 
   Serial.println("Starting sensors test...");
   if (!mySensor.begin()== false){
@@ -102,43 +131,47 @@ void setup() {
 
 void loop() {
   // Read and process soil moisture data
+  long currTime = millis() - startTime;   
+  float dataTime = currTime / 1000.0;
   soilMoistureValue1 = analogRead(A0);  // Read the value from Analog pin 0
   soilMoistureValue2 = analogRead(A3);
   soilMoistureValue3 = analogRead(A6);
-  soilMoistureValue4 = analogRead(A7);
-  soilMoistureValue5 = analogRead(A4);
+  soilPercent1 = exp(-1*(soilMoistureValue1 -3248.5)/449.9);
+  soilPercent2 = exp(-1*(soilMoistureValue2 -3248.5)/449.9);
+  soilPercent3 = exp(-1*(soilMoistureValue3 -3248.5)/449.9);
 
 
   Serial.print("Soil Moisture Raw Value for sensor 1: ");
   Serial.println(soilMoistureValue1);  // Display the raw value of soil moisture
-  Serial.println("################");
+  Serial.print(soilPercent1); Serial.println("%"); Serial.println("################");
   Serial.print("Soil Moisture Raw Value for sensor 2: ");
   Serial.println(soilMoistureValue2);  // Display the raw value of soil moisture
-  Serial.println("################");
+  Serial.print(soilPercent2);Serial.println("%");Serial.println("################");
   Serial.print("Soil Moisture Raw Value for sensor 3: ");
   Serial.println(soilMoistureValue3);  // Display the raw value of soil moisture
-  Serial.println("################");
-  Serial.print("Soil Moisture Raw Value for sensor 4: ");
-  Serial.println(soilMoistureValue4);  // Display the raw value of soil moisture
-  Serial.println("################");
-  Serial.print("Soil Moisture Raw Value for sensor 5: ");
-  Serial.println(soilMoistureValue5);  // Display the raw value of soil moisture
+  Serial.print(soilPercent3);Serial.println("%");Serial.println("################");
 
-  
-  // Classify and display the moisture level
   if (soilMoistureValue1 <= WaterValue) {
     Serial.println("Status: Water");
+    digitalWrite(relaySoilPin, LOW); // Soil is very wet, turn off the pump
   } else if (soilMoistureValue1 <= WaterValue + intervals) {
     Serial.println("Status: Very Wet");
+    Serial.println("Pump: OFF VERY WET");
+    digitalWrite(relaySoilPin, LOW); // Still wet enough, keep pump off
   } else if (soilMoistureValue1 <= AirValue - intervals) {
     Serial.println("Status: Wet");
+    Serial.println("Pump: OFF WET");
+    digitalWrite(relaySoilPin, LOW); // Moist enough, no watering needed
   } else if (soilMoistureValue1 < AirValue) {
     Serial.println("Status: Dry");
+    digitalWrite(relaySoilPin, HIGH); // Dry, turn on the pump
+    Serial.println("Pump: ON DRY");
   } else {
     Serial.println("Status: Air");
+    digitalWrite(relaySoilPin, HIGH); // Very dry, definitely turn on the pump
+    Serial.println("Pump: ON VERY DRY");
   }
 
- 
 
     /* Get a new sensor event */ 
   sensors_event_t event;
@@ -153,7 +186,21 @@ void loop() {
   {
     /* If event.light = 0 lux the sensor is probably saturated
        and no reliable data could be generated! */
-    Serial.println("Sensor overload");
+    Serial.println("Light sensor overload");
+
+
+  }
+  
+  if(event.light <= lightLowerBound){
+    Serial.print("light:"); Serial.print(event.light); Serial.println(" lux");
+
+    Serial.print("turning light on");
+    digitalWrite(relayLightPin, HIGH);
+  } else if (event.light >= lightUpperBound){
+    Serial.print("light:"); Serial.print(event.light); Serial.println(" lux");
+
+    Serial.print("turning light off");
+    digitalWrite(relayLightPin, LOW);
 
 
   }
@@ -176,7 +223,53 @@ void loop() {
     Serial.println();
   }
   else
-    Serial.println("Fail");
+    Serial.println("Co2 sensor Fail");
+
+  // RECORD DATA TO SD CARD
+    int digPinState = digitalRead(dataPin);
+    
+    // Write header on reading start
+    if (digPinState && !dataPinHold){
+      if(!SD.begin()){
+        Serial.println("Card Mount Failed");
+        return;
+      }
+      datafile = SD.open(filename, FILE_WRITE);
+      Serial.println("Recording Started");
+      
+    }
+    
+    // Write data
+    if (digPinState) {
+      Serial.println("saving data");
+      dataPinHold = digPinState;
+      datafile.print(dataTime, 1);
+      datafile.print("Soil Sensor 1: ");datafile.print(soilPercent1); datafile.print(" %");
+      datafile.print("Soil Sensor 2: ");datafile.print(soilPercent2); datafile.print(" %");
+      datafile.print("Soil Sensor 3: ");datafile.print(soilPercent3); datafile.print(" %");
+      
+
+      datafile.print("CO2(ppm):");
+      datafile.print(mySensor.getCO2());
+
+      datafile.print("Temperature(C):");
+      datafile.print(mySensor.getTemperature(), 1);
+
+      datafile.print("Humidity(%RH):");
+      datafile.print(mySensor.getHumidity(), 1);
+
+  
+
+ 
+      datafile.println();
+    }
+    // Close file on reading stop
+    else if (dataPinHold) {
+     datafile.close();
+     SD.end();
+     Serial.println("Recording Ended");
+     dataPinHold = digPinState;
+    }
 
 
 
