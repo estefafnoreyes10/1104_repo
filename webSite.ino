@@ -15,8 +15,19 @@ int soilPercent3 = 0;
 const int relaySoilPin = 16;
 const int relayLightPin = 25;
 const int dataPin = 17;             // Input pin for data recording switch
-const int pumpRunTime = 10000; //10 seconds
+const int pumpRunTime = 5000; //10 seconds
 int pumpOn = 0; //0 means off
+unsigned long lastPumpTimeActive = 0;
+const unsigned long pumpInterval = 18*3.6*pow(10, 6); //18*3.6*pow(10, 6); //48hours  // 
+
+
+int dataTime = 86400000;    // 12hour
+int dataCount;                      // Counter for saved data points
+int dataInterval = 60000; //1 minute
+int lastDataTime = 0;
+int timeAtCollection;
+
+
 // Include the library for the DHT22 sensor
 
 #include <Wire.h>
@@ -134,7 +145,7 @@ void setup() {
 
 
   // Initialize timing variables
-  delay(500);
+  
   startTime = millis();
   senseNext = 0;
   dataPinHold = 0;
@@ -166,13 +177,17 @@ void setup() {
   server.begin();
 
   Serial.println("Server started");
+
+  if(!SD.begin()){
+        Serial.println("Card Mount Failed");
+        return;
+      }
+  datafile = SD.open(filename, FILE_WRITE);
+  Serial.println("Recording Started");
   
   /* We're ready to go! */
   Serial.println("Setup complete, entering main loop");
 }
-
-unsigned long lastPumpTimeActive = 0;
-const unsigned long pumpInterval = 18*3.6*pow(10, 6); //48hours  // 
 
 
 //const unsigned long pumpInterval = 15000;//15 seconds 
@@ -189,7 +204,7 @@ void loop() {
 
   // Read and process soil moisture data
   long currTime = millis() - startTime;   
-  float dataTime = currTime / 1000.0;
+ 
   soilMoistureValue1 = analogRead(A0);  // Read the value from Analog pin 0
   soilMoistureValue2 = analogRead(A3);
   soilMoistureValue3 = analogRead(A6);
@@ -211,7 +226,7 @@ void loop() {
   Serial.println(soilMoistureValue3);  // Display the raw value of soil moisture
   Serial.print(soilPercent3);Serial.println("%");Serial.println("################");
 
-  Serial.print("Avergage Soil Percent for 3 sensors: ");
+  Serial.print("Average Soil Percent for 3 sensors: ");
   Serial.println(avgSoilPercent); Serial.println("%"); Serial.println("################");
 
 
@@ -222,29 +237,30 @@ void loop() {
   // Control the pump based on moisture level
 
   // Check if it's time to activate the pump
-  Serial.print("current time interval"); Serial.println(currentMillisPump - lastPumpTimeActive);
-  Serial.print("Time interval"); Serial.println(pumpInterval);
+  Serial.print("current time interval for pump"); Serial.println(currentMillisPump - lastPumpTimeActive);
+  Serial.print("pump interval"); Serial.println(pumpInterval);
   if (currentMillisPump - lastPumpTimeActive >= pumpInterval) {
 
     // Check soil moisture conditions to decide whether to turn on or off the pump
-    if (soilPercent1 < 20) {
+    if ((soilPercent1 < 20 && soilPercent2 < 20) && soilPercent3<20) {
         digitalWrite(relaySoilPin, HIGH); // Soil is dry, turn on the pump
         Serial.println("Pump: ON (Soil Dry)");
         pumpOn = 1;
     }
-    else if(pumpOn && currentMillisPump - lastPumpTimeActive>= pumpRunTime){
-      digitalWrite(relaySoilPin, LOW); // Soil is moist enough, turn off the pump
-      Serial.println("Pump: OFF (Soil Moist)");
-      pumpOn = 0;
-
-    }
-     else if (avgSoilPercent > 20 || soilPercent2 > 20) {
-        digitalWrite(relaySoilPin, LOW); // Soil is moist enough, turn off the pump
-        Serial.println("Pump: OFF (Soil Moist)");
-        pumpOn = 0;
-    }
+    
 
     lastPumpTimeActive = currentMillisPump; // Reset the timer
+  }
+  if(pumpOn && currentMillisPump - lastPumpTimeActive>= pumpRunTime){
+    digitalWrite(relaySoilPin, LOW); // Soil is moist enough, turn off the pump
+    Serial.println("Pump: OFF (Soil Moist)");
+    pumpOn = 0;
+
+  }
+  if (avgSoilPercent > 20 || soilPercent2 > 20 || soilPercent3 > 20) {
+    digitalWrite(relaySoilPin, LOW); // Soil is moist enough, turn off the pump
+    Serial.println("Pump: OFF (Soil Moist)");
+    pumpOn = 0;
   }
 
   
@@ -341,28 +357,20 @@ void loop() {
 
     Serial.println();
   }
-  else
+  else{
     Serial.println("Co2 sensor Fail");
-
+  }
   // RECORD DATA TO SD CARD
-    int digPinState = digitalRead(dataPin);
     
-    // Write header on reading start
-    if (digPinState && !dataPinHold){
-      if(!SD.begin()){
-        Serial.println("Card Mount Failed");
-        return;
-      }
-      datafile = SD.open(filename, FILE_WRITE);
-      Serial.println("Recording Started");
-      
-    }
     
   // Write data
-  if (digPinState) {
-    Serial.println("saving data");
-    dataPinHold = digPinState;
-    datafile.print(dataTime, 1);
+  timeAtCollection = currTime/1000.0;
+  Serial.print("currTime-lastdataTime"); Serial.println(currTime-lastDataTime); 
+  Serial.print("data interval");Serial.println(dataInterval);
+  if ((currTime-lastDataTime >=dataInterval) ) {
+    
+    Serial.print("saving data");
+    datafile.print(timeAtCollection, 1);
     datafile.print("Soil Sensor 1: ");datafile.print(soilPercent1); datafile.print(" %");
     datafile.print("Soil Sensor 2: ");datafile.print(soilPercent2); datafile.print(" %");
     datafile.print("Soil Sensor 3: ");datafile.print(soilPercent3); datafile.print(" %");
@@ -379,17 +387,18 @@ void loop() {
     datafile.print("Humidity(%RH):");
     datafile.print(mySensor.getHumidity(), 1);
 
-
-
-
     datafile.println();
+    lastDataTime = currTime;
+    Serial.print("lastDataTime");Serial.println(lastDataTime);
+    Serial.println("new diff"); Serial.println(currTime-lastDataTime);
   }
   // Close file on reading stop
-  else if (dataPinHold) {
+  Serial.print("start"); Serial.print(currTime); Serial.print(" Data time"); Serial.println(dataTime);
+  if (currTime>=dataTime) {
     datafile.close();
     SD.end();
     Serial.println("Recording Ended");
-    dataPinHold = digPinState;
+    
   }
   WiFiClient client = server.available(); 
 
